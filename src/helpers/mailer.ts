@@ -44,7 +44,7 @@ export const sendEmail = async ({
     }
 
     const baseUrl = getBaseUrl();
-    const verifyLink = `${baseUrl}/verifytoken?token=${hashedToken}`;
+    const verifyLink = `${baseUrl}/verifyemail?token=${hashedToken}`;
     const resetLink = `${baseUrl}/resetpassword?token=${hashedToken}`;
 
     const fromEmail =
