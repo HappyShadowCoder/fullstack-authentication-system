@@ -1,45 +1,50 @@
 import { connect } from "@/dbConfig/dbConfig";
 import User from "@/models/userModel";
 import { NextRequest, NextResponse } from "next/server";
-import { sendEmail } from "@/helpers/mailer";
+import bcryptjs from "bcryptjs";
 
 connect();
 
 export async function POST(request: NextRequest) {
   try {
-    const reqBody = await request.json();
-    const { email } = reqBody;
+    const { password, token } = await request.json();
 
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    if (!token) {
+      return NextResponse.json({ error: "Token is required" }, { status: 400 });
+    }
+    if (!password) {
+      return NextResponse.json(
+        { error: "Password is required" },
+        { status: 400 }
+      );
     }
 
-    // Check if user exists
-    const user = await User.findOne({ email });
+    // Find user by reset token
+    const user = await User.findOne({
+      forgotPasswordToken: token,
+      forgotPasswordTokenExpiry: { $gt: Date.now() },
+    });
+
     if (!user) {
       return NextResponse.json(
-        { error: "No account found with that email address" },
-        { status: 404 }
+        { error: "Invalid or expired token" },
+        { status: 400 }
       );
     }
 
-    // Send reset email
-    try {
-      await sendEmail({ email, emailType: "RESET", userId: user._id });
-    } catch (err: any) {
-      console.error("❌ Failed to send reset email:", err.message);
-      return NextResponse.json(
-        { error: "Failed to send password reset email" },
-        { status: 500 }
-      );
-    }
+    // Hash and save new password
+    const hashedPassword = await bcryptjs.hash(password, 10);
+    user.password = hashedPassword;
+    user.forgotPasswordToken = undefined;
+    user.forgotPasswordTokenExpiry = undefined;
+    await user.save();
 
     return NextResponse.json({
       success: true,
-      message: "Password reset link sent to your email",
+      message: "Password reset successful",
     });
   } catch (error: any) {
-    console.error("Forgot password error:", error);
+    console.error("Reset password error:", error);
     return NextResponse.json(
       { error: error.message || "Something went wrong" },
       { status: 500 }
