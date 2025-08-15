@@ -12,7 +12,7 @@ import toast, { Toaster } from "react-hot-toast";
 // The database connection call has been removed from this client component.
 // connect()
 
-export default function forgotPasswordPage() {
+export default function ForgotPasswordPage() {
   // The useRouter hook call has been removed.
   const [email, setEmail] = React.useState({
     email: "",

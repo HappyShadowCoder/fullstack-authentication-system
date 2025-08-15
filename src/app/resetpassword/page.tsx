@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 
-export default function resetPasswordPage() {
+export default function ResetPasswordPage() {
   // This state is not needed as we can use window.location directly
   // const router = useRouter();
   const [passwords, setPasswords] = useState({
