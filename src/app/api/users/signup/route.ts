@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
     const reqBody = await request.json();
     const { username, email, password } = reqBody;
 
+    // Validate input
     if (!username || !email || !password) {
       return NextResponse.json(
         { error: "All fields are required" },
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if email already exists
+    // Check if user already exists by email
     const existingEmail = await User.findOne({ email });
     if (existingEmail) {
       return NextResponse.json(
@@ -31,38 +32,68 @@ export async function POST(request: NextRequest) {
     const existingUsername = await User.findOne({ username });
     if (existingUsername) {
       return NextResponse.json(
-        { error: "Username already taken" },
+        { error: "Username already in use" },
         { status: 400 }
       );
     }
 
     // Hash password
-    const salt = await bcryptjs.genSalt(10);
-    const hashedPassword = await bcryptjs.hash(password, salt);
+    const hashedPassword = await bcryptjs.hash(password, 10);
 
-    // Create user
+    // Create new user
     const newUser = new User({
       username,
       email,
       password: hashedPassword,
     });
+
     const savedUser = await newUser.save();
 
     // Send verification email
-    await sendEmail({
-      email,
-      emailType: "VERIFY",
-      userId: savedUser._id,
-    });
+    try {
+      await sendEmail({
+        email: savedUser.email,
+        emailType: "VERIFY",
+        userId: savedUser._id,
+      });
+    } catch (err: any) {
+      console.error("❌ Failed to send verification email:", err.message);
+      // You can choose to still return success or fail here
+    }
 
     return NextResponse.json({
-      message: "User registered successfully. Please check your email to verify your account.",
+      message:
+        "User registered successfully! Please check your email to verify your account.",
       success: true,
+      user: {
+        id: savedUser._id,
+        username: savedUser.username,
+        email: savedUser.email,
+      },
     });
   } catch (error: any) {
     console.error("Signup error:", error);
+
+    // Handle Mongo duplicate key error
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return NextResponse.json(
+        {
+          error: `${
+            field.charAt(0).toUpperCase() + field.slice(1)
+          } already in use`,
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
-      { error: error.message || "Something went wrong" },
+      {
+        error:
+          typeof error.message === "string"
+            ? error.message
+            : "Something went wrong",
+      },
       { status: 500 }
     );
   }
