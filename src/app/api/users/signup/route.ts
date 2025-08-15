@@ -52,6 +52,14 @@ export async function POST(request: NextRequest) {
       savedUser,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Signup Error:", error); // This will show in Vercel logs
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
   }
 }
