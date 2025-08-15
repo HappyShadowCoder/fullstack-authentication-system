@@ -4,36 +4,33 @@ import { NextRequest, NextResponse } from "next/server";
 import bcryptjs from "bcryptjs";
 import { sendEmail } from "@/helpers/mailer";
 
-// Connect to the database
 connect();
 
 export async function POST(request: NextRequest) {
   try {
     const reqBody = await request.json();
-    const { username, email, password } = reqBody;
+    const { email, password, username } = reqBody;
 
-    // Corrected: Validate input before any database operations
-    if (!username || !email || !password) {
+    if (!email || !password || !username) {
       return NextResponse.json(
-        { error: "Please provide a username, email, and password" },
+        { error: "All fields are required" },
         { status: 400 }
       );
     }
 
-    // Check if user already exists
-    const user = await User.findOne({ email });
-
-    if (user) {
+    // ✅ Check for duplicate email
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
       return NextResponse.json(
-        { error: "User already exists" },
+        { error: "User already exists with this email" },
         { status: 400 }
       );
     }
 
-    // Hash Password
-    const salt = await bcryptjs.genSalt(10);
-    const hashedPassword = await bcryptjs.hash(password, salt);
+    // Hash password
+    const hashedPassword = await bcryptjs.hash(password, 10);
 
+    // Create user
     const newUser = new User({
       username,
       email,
@@ -41,25 +38,29 @@ export async function POST(request: NextRequest) {
     });
 
     const savedUser = await newUser.save();
-    console.log(savedUser);
 
-    // Send verification EMAIL
-    await sendEmail({ email, emailType: "VERIFY", userId: savedUser._id });
+    // Send verification email
+    try {
+      await sendEmail({
+        email: savedUser.email,
+        emailType: "VERIFY",
+        userId: savedUser._id,
+      });
+    } catch (mailError) {
+      console.error("❌ Failed to send verification email:", mailError);
+      return NextResponse.json(
+        { error: "Account created but failed to send verification email" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
-      message: "User successfully registered",
+      message:
+        "Signup successful! Please check your email for verification link.",
       success: true,
-      savedUser,
     });
   } catch (error: any) {
-    console.error("Signup Error:", error); // This will show in Vercel logs
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    console.error("Signup error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
